@@ -455,7 +455,7 @@ public final class StatementSwitchToExpressionSwitchTest {
 
   @Test
   public void switchFallsThruToDefault_noError() {
-
+    System.out.println("HHHHHH");
     assumeTrue(RuntimeVersion.isAtLeast14());
     helper
         .addSourceLines(
@@ -1033,6 +1033,191 @@ public final class StatementSwitchToExpressionSwitchTest {
             "}")
         .setArgs(
             ImmutableList.of("-XepOpt:StatementSwitchToExpressionSwitch:EnableDirectConversion"))
+        .doTest();
+  }
+
+  @Test
+  public void switchByEnum_convertDirectly_noMatch() {
+    // The SPADE and default cases cannot be combined without duplicating code
+    assumeTrue(RuntimeVersion.isAtLeast14());
+    helper
+        .addSourceLines(
+            "Test.java",
+            "class Test {",
+            "  enum Side {HEART, SPADE, DIAMOND, CLUB};",
+            "  public Test(int foo) {",
+            "  }",
+            " ",
+            "  public int foo(Side side) { ",
+            "    switch(side) {",
+            "       case HEART:",
+            "       case DIAMOND:",
+            "          return -1;",
+            "       case SPADE:",
+            "       default:",
+            "         throw new NullPointerException();",
+            "    }",
+            "  }",
+            "}")
+        .setArgs(
+            ImmutableList.of(
+                "-XepOpt:StatementSwitchToExpressionSwitch:EnableReturnSwitchConversion"))
+        .doTest();
+  }
+
+  ////////////////
+  /////////////// Return switch () ...
+  //////////////
+  /////////////
+
+  @Test
+  public void switchByEnum_returnSwitch_error() {
+    System.out.println("RRRRRRRR");
+    assumeTrue(RuntimeVersion.isAtLeast14());
+    helper
+        .addSourceLines(
+            "Test.java",
+            "class Test {",
+            "  enum Side {HEART, SPADE, DIAMOND, CLUB};",
+            "  public Test(int foo) {",
+            "  }",
+            " ",
+            "  public int invoke() {",
+            "    return 123;",
+            "  }",
+            "  public int foo(Side side) { ",
+            "    // BUG: Diagnostic contains: [StatementSwitchToExpressionSwitch]",
+            "    switch(side) {",
+            "       case HEART:",
+            "       case DIAMOND:",
+            "          return invoke();",
+            "       case SPADE:",
+            "         throw new RuntimeException();",
+            "       default:",
+            "         throw new NullPointerException();",
+            "    }",
+            "  }",
+            "}")
+        .setArgs(
+            ImmutableList.of(
+                "-XepOpt:StatementSwitchToExpressionSwitch:EnableReturnSwitchConversion"))
+        .doTest();
+
+    // Check correct generated code
+    refactoringHelper
+        .addInputLines(
+            "Test.java",
+            "class Test {",
+            "  enum Side {HEART, SPADE, DIAMOND, CLUB};",
+            "  public Test(int foo) {",
+            "  }",
+            " ",
+            "  public int invoke() {",
+            "    return 123;",
+            "  }",
+            "  public int foo(Side side) { ",
+            "    switch(side) {",
+            "       case HEART:",
+            "       case DIAMOND:",
+            "          return invoke();",
+            "       case SPADE:",
+            "         throw new RuntimeException();",
+            "       default:",
+            "         throw new NullPointerException();",
+            "    }",
+            "  }",
+            "}")
+        .addOutputLines(
+            "Test.java",
+            "class Test {",
+            "  enum Side {HEART, SPADE, DIAMOND, CLUB};",
+            "  public Test(int foo) {",
+            "  }",
+            " ",
+            "  public int invoke() {",
+            "    return 123;",
+            "  }",
+            "  public int foo(Side side) { ",
+            "    return switch(side) {",
+            "       case HEART, DIAMOND -> invoke();",
+            "       case SPADE -> throw new RuntimeException();",
+            "       default -> throw new NullPointerException();",
+            "    };",
+            "  }",
+            "}")
+        .setArgs(
+            ImmutableList.of(
+                "-XepOpt:StatementSwitchToExpressionSwitch:EnableReturnSwitchConversion"))
+        .doTest();
+  }
+
+  @Test
+  public void switchByEnum_AAAAA_error() {
+    // assumeTrue(RuntimeVersion.isAtLeast14());
+    System.out.println("888888888888888");
+    helper
+        .addSourceLines(
+            "Test.java",
+            "class Test {",
+            "  enum Side {HEART, SPADE, DIAMOND, CLUB};",
+            "  public Test(int foo) {",
+            "  }",
+            " ",
+            "  public int invoke() {",
+            "    return 123;",
+            "  }",
+            "  public int foo(Side side) { ",
+            "    String z = \"dkfj\";",
+            "    // BUG: Diagnostic contains: [StatementSwitchToExpressionSwitch]",
+            "    switch(z) {",
+            "       case \"\":",
+            "       case \"DIAMOND\":",
+            "          //return invoke();",
+            "       case \"SPADE\":",
+            "         return invoke();",
+            "       default:",
+            "         return 2;",
+            "    }",
+            "  }",
+            "}")
+        .setArgs(
+            ImmutableList.of(
+                "-XepOpt:StatementSwitchToExpressionSwitch:EnableReturnSwitchConversion"))
+        .doTest();
+  }
+
+  @Test
+  public void switchByEnum_defaultFallThru_error() {
+    // No error because default doesn't return anything
+    System.out.println("DDDDDDDDDDDD");
+    // assumeTrue(RuntimeVersion.isAtLeast14());
+    helper
+        .addSourceLines(
+            "Test.java",
+            "class Test {",
+            "  enum Side {HEART, SPADE, DIAMOND, CLUB};",
+            "  public Test(int foo) {",
+            "  }",
+            " ",
+            "  public int invoke() {",
+            "    return 123;",
+            "  }",
+            "  public int foo(Side side) { ",
+            "    switch(side) {",
+            "       case HEART:",
+            "       case DIAMOND:",
+            "          return invoke();",
+            "       case SPADE:",
+            "         throw new RuntimeException();",
+            "       default:",
+            "         // Fall thru",
+            "    }",
+            "    return -2;",
+            "  }",
+            "}")
+        .setArgs(
+            ImmutableList.of(
+                "-XepOpt:StatementSwitchToExpressionSwitch:EnableReturnSwitchConversion"))
         .doTest();
   }
 }
